@@ -1,0 +1,145 @@
+{
+  "generalSettings": {
+    "kpiStartDay": 16
+  },
+  "assigners": [
+	{
+      "code": "ld_bca",
+      "name": "LĐ BCA",
+      "disabled": false
+    },
+	{
+      "code": "ld_ubnd_tinh",
+      "name": "LĐ UBND Tỉnh",
+      "disabled": false
+    },
+    {
+      "code": "giam_doc",
+      "name": "Giám đốc Công an tỉnh",
+      "disabled": false
+    },
+    {
+      "code": "pho_giam_doc",
+      "name": "Phó Giám đốc phụ trách",
+      "disabled": false
+    },
+    {
+      "code": "truong_phong_hau_can",
+      "name": "Trưởng phòng Hậu cần",
+      "disabled": false
+    },
+    {
+      "code": "pho_truong_phong_hau_can",
+      "name": "Phó Trưởng phòng Hậu cần",
+      "disabled": false
+    }
+  ],
+  "orgUnits": [
+    {
+      "code": "doi_tong_hop",
+      "name": "Đ1 - Đội Tổng hợp",
+      "head_name": "Đào Minh Toản",
+      "head_title": "Trưởng phòng",
+      "head_rank": "Đại tá",
+      "disabled": false
+    },
+    {
+      "code": "doi_hanh_chinh_quan_tri",
+      "name": "Đ2 - Đội Hành chính, quản trị",
+      "head_name": "Nguyễn Công An",
+      "head_title": "Phó Trưởng phòng",
+      "head_rank": "Thượng tá",
+      "disabled": false
+    },
+    {
+      "code": "doi_tai_chinh",
+      "name": "Đ3 - Đội Tài chính",
+      "head_name": "Huỳnh Ngọc Nam",
+      "head_title": "Phó Trưởng phòng",
+      "head_rank": "Trung tá",
+      "disabled": false
+    },
+    {
+      "code": "doi_quan_ly_tai_san",
+      "name": "Đ4 - Đội Quản lý tài sản và trang cấp",
+      "head_name": "Võ Văn Cường",
+      "head_title": "Phó Trưởng phòng",
+      "head_rank": "Thượng tá",
+      "disabled": false
+    },
+    {
+      "code": "doi_xay_dung_doanh_trai",
+      "name": "Đ5 - Đội Xây dựng, doanh trại",
+      "head_name": "Đào Minh Toản",
+      "head_title": "Trưởng phòng",
+      "head_rank": "Đại tá",
+      "disabled": false
+    },
+    {
+      "code": "doi_xe",
+      "name": "Đ6 - Đội Xe",
+      "head_name": "Nguyễn Văn Quy",
+      "head_title": "Phó Trưởng phòng",
+      "head_rank": "Thượng tá",
+      "disabled": false
+    },
+    {
+      "code": "trung_tam_udkhcn",
+      "name": "Đ7 - Trung tâm UDKHCN",
+      "head_name": "Trần Quyết Hùng",
+      "head_title": "Phó Trưởng phòng",
+      "head_rank": "Thượng tá",
+      "disabled": false
+    },
+    {
+      "code": "nha_khach_cong_an_tinh",
+      "name": "Đ8 - Nhà khách Công an tỉnh",
+      "head_name": "Nguyễn Công An",
+      "head_title": "Phó Trưởng phòng",
+      "head_rank": "Thượng tá",
+      "disabled": false
+    },
+    {
+      "code": "nha_nghi_duong_nui_nhan",
+      "name": "Đ9 - Nhà nghỉ dưỡng Núi Nhạn",
+      "head_name": "Cao Thanh Lâm",
+      "head_title": "Phó Trưởng phòng",
+      "head_rank": "Thượng tá",
+      "disabled": false
+    }
+  ],
+  "taskStatuses": [
+    {
+      "code": "in_progress",
+      "name": "Đang triển khai",
+      "tone": "info"
+    },
+    {
+      "code": "delayed",
+      "name": "Chậm tiến độ (chưa hoàn thành)",
+      "tone": "danger"
+    },
+    {
+      "code": "done",
+      "name": "Đã hoàn thành",
+      "tone": "success"
+    }
+  ],
+  "priorityLevels": [
+    {
+      "code": "normal",
+      "name": "Bình thường",
+      "tone": "neutral"
+    },
+    {
+      "code": "urgent",
+      "name": "Gấp",
+      "tone": "warning"
+    },
+    {
+      "code": "critical",
+      "name": "Rất gấp",
+      "tone": "danger"
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cài đặt hệ thống</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body data-page="settings">
+    <main class="prototype-page settings-page">
+        <div class="settings-header">
+            <div>
+                <h2>Cài đặt hệ thống</h2>
+                <p class="subtitle">Quản lý các nhóm cài đặt chung và danh sách đơn vị trực thuộc trong cùng một màn hình.</p>
+            </div>
+            <a class="btn btn-secondary" href="/dashboard.html">← Quay lại dashboard</a>
+        </div>
+
+        <div class="settings-shell">
+            <aside class="settings-nav" aria-label="Nhóm cài đặt">
+                <button class="settings-nav-button active" type="button" data-tab-target="general">
+                    <span class="settings-nav-title">Cài đặt chung</span>
+                    <span class="settings-nav-note">Thiết lập KPI và thông số dùng chung</span>
+                </button>
+                <button class="settings-nav-button" type="button" data-tab-target="assigners">
+                    <span class="settings-nav-title">Lãnh đạo giao việc</span>
+                    <span class="settings-nav-note">Quản lý danh sách lãnh đạo và trạng thái sử dụng</span>
+                </button>
+                <button class="settings-nav-button" type="button" data-tab-target="org-units">
+                    <span class="settings-nav-title">Đơn vị trực thuộc</span>
+                    <span class="settings-nav-note">Quản lý danh sách đơn vị và trạng thái sử dụng</span>
+                </button>
+            </aside>
+
+            <div class="settings-content">
+                <section class="settings-panel active" data-settings-tab="general">
+                    <section class="form-container settings-card">
+                        <div class="settings-toolbar compact">
+                            <div>
+                                <h3>Cài đặt chung</h3>
+                                <p class="settings-section-note">Thiết lập ngày bắt đầu tính KPI theo tháng cho toàn hệ thống.</p>
+                            </div>
+                            <button class="btn btn-success" id="saveGeneralButton" type="button">💾 Lưu cài đặt chung</button>
+                        </div>
+
+                        <div class="form-grid settings-general-grid">
+                            <div class="form-group">
+                                <label for="kpiStartDaySelect">Ngày bắt đầu tính KPI của tháng</label>
+                                <select id="kpiStartDaySelect"></select>
+                            </div>
+                        </div>
+                    </section>
+                </section>
+
+                <section class="settings-panel" data-settings-tab="assigners">
+                    <section class="form-container settings-card">
+                        <h3>Thêm lãnh đạo giao việc mới</h3>
+                        <div class="form-grid settings-assigner-grid">
+                            <div class="form-group">
+                                <label for="newAssignerName">Tên lãnh đạo</label>
+                                <input type="text" id="newAssignerName" placeholder="Nhập tên lãnh đạo">
+                            </div>
+                        </div>
+                        <div class="form-action-row">
+                            <button class="btn btn-primary" id="addAssignerButton" type="button">+ Thêm lãnh đạo</button>
+                        </div>
+                    </section>
+
+                    <section class="table-container settings-card">
+                        <div class="settings-toolbar">
+                            <div>
+                                <h3>Danh sách lãnh đạo giao việc</h3>
+                                <p class="settings-section-note">Không cho xóa lãnh đạo đã có. Có thể cập nhật tên hoặc tắt sử dụng.</p>
+                            </div>
+                            <button class="btn btn-success" id="saveAssignersButton" type="button">💾 Lưu thay đổi</button>
+                        </div>
+                        <table class="settings-table assigners-table">
+                            <thead>
+                                <tr>
+                                    <th class="w-14">Tên lãnh đạo</th>
+                                    <th class="w-10">Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignersTableBody"></tbody>
+                        </table>
+                    </section>
+                </section>
+
+                <section class="settings-panel" data-settings-tab="org-units">
+                    <section class="form-container settings-card">
+                        <h3>Thêm đơn vị mới</h3>
+                        <div class="form-grid settings-add-grid">
+                            <div class="form-group">
+                                <label for="newUnitName">Tên đơn vị</label>
+                                <input type="text" id="newUnitName" placeholder="Nhập tên đơn vị">
+                            </div>
+                            <div class="form-group">
+                                <label for="newHeadName">Người đứng đầu</label>
+                                <input type="text" id="newHeadName" placeholder="Nhập người đứng đầu đơn vị">
+                            </div>
+                            <div class="form-group">
+                                <label for="newHeadTitle">Chức vụ người đứng đầu</label>
+                                <input type="text" id="newHeadTitle" placeholder="Nhập chức vụ">
+                            </div>
+                            <div class="form-group">
+                                <label for="newHeadRank">Cấp bậc người đứng đầu</label>
+                                <input type="text" id="newHeadRank" placeholder="Nhập cấp bậc">
+                            </div>
+                        </div>
+                        <div class="form-action-row">
+                            <button class="btn btn-primary" id="addUnitButton" type="button">+ Thêm đơn vị</button>
+                        </div>
+                    </section>
+
+                    <section class="table-container settings-card">
+                        <div class="settings-toolbar">
+                            <div>
+                                <h3>Danh sách đơn vị trực thuộc</h3>
+                                <p class="settings-section-note">Không cho xóa đơn vị đã có. Có thể cập nhật thông tin hoặc tắt sử dụng.</p>
+                            </div>
+                            <button class="btn btn-success" id="saveUnitsButton" type="button">💾 Lưu thay đổi</button>
+                        </div>
+                        <table class="settings-table">
+                            <thead>
+                                <tr>
+                                    <th class="w-14">Tên đơn vị</th>
+                                    <th class="w-14">Người đứng đầu</th>
+                                    <th class="w-14">Chức vụ</th>
+                                    <th class="w-12">Cấp bậc</th>
+                                    <th class="w-10">Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orgUnitsTableBody"></tbody>
+                        </table>
+                    </section>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script src="/assets/js/app.js"></script>
+    <script src="/assets/js/settings.js"></script>
+</body>
+</html>

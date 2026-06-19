@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống giám sát tiến độ hậu cần</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body data-page="dashboard">
+    <main class="prototype-page">
+        <h2>Hệ thống giám sát tiến độ hậu cần tập trung</h2>
+        <p class="subtitle">Mô hình “6 rõ” toàn diện - cấu hình xuất báo cáo Excel chuẩn đồ họa cao cấp</p>
+
+        <section class="doc-input-container">
+            <h3>📩 1. Trợ lý số hóa & dự thảo nhanh nhiệm vụ từ văn bản đến</h3>
+            <div class="form-group stacked">
+                <label for="rawDocument">SAO CHÉP & DÁN NỘI DUNG VĂN BẢN CHỈ ĐẠO VÀO ĐÂY:</label>
+                <textarea id="rawDocument" class="doc-textarea" placeholder="Ví dụ: Công văn chỉ đạo của Giám đốc giao Trung tâm UDKHCN triển khai bảo trì phần mềm trước ngày 18/06/2026..."></textarea>
+            </div>
+            <div class="doc-actions">
+                <button class="btn btn-success accent-btn" id="analyzeDocumentButton" type="button">🤖 Phân tích & phân chức năng đơn vị</button>
+            </div>
+        </section>
+
+        <section class="form-container">
+            <h3 id="formTitle">2. Giao việc mới & thiết lập tiêu chí chỉ đạo</h3>
+            <input type="hidden" id="editTaskId" value="">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="taskAssigner">1. RÕ LÃNH ĐẠO GIAO VIỆC (Cấp chỉ đạo)</label>
+                    <select id="taskAssigner"></select>
+                </div>
+                <div class="form-group">
+                    <label for="taskName">2. RÕ VIỆC (Nội dung / hạng mục)</label>
+                    <input type="text" id="taskName" placeholder="Nội dung công việc...">
+                </div>
+                <div class="form-group">
+                    <label for="taskUnit">3. RÕ TRÁCH NHIỆM (Đơn vị chủ trì)</label>
+                    <select id="taskUnit"></select>
+                </div>
+                <div class="form-group">
+                    <label for="taskDeadline">4. TIẾN ĐỘ (Hạn cuối hoàn thành)</label>
+                    <input type="date" id="taskDeadline">
+                </div>
+                <div class="form-group">
+                    <label for="taskResult">5. RÕ KẾT QUẢ (Sản phẩm đầu ra tiêu chuẩn)</label>
+                    <input type="text" id="taskResult" placeholder="Sản phẩm đầu ra...">
+                </div>
+                <div class="form-group">
+                    <label for="taskOwner">6. RÕ NGƯỜI THAM MƯU</label>
+                    <input type="text" id="taskOwner" placeholder="Đồng chí phụ trách...">
+                </div>
+                <div class="form-group">
+                    <label for="taskAuthority">7. RÕ THẨM QUYỀN (Cấp phê duyệt cuối)</label>
+                    <input type="text" id="taskAuthority" placeholder="Cấp duyệt...">
+                </div>
+                <div class="form-group">
+                    <label for="taskStatus">TRẠNG THÁI TRIỂN KHAI</label>
+                    <select id="taskStatus">
+                        <option value="in_progress">Đang triển khai (chưa quá hạn)</option>
+                        <option value="delayed">Chậm tiến độ (chưa hoàn thành)</option>
+                        <option value="done">Đã hoàn thành</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-grid split-grid" id="taskDetailFields">
+                <div class="form-group">
+                    <label for="taskProgressUpdate">CẬP NHẬT KẾT QUẢ THỰC TẾ ĐẾN HIỆN TẠI</label>
+                    <input type="text" id="taskProgressUpdate" placeholder="Ví dụ: Đã khảo sát xong, đang trình Ban Giám đốc...">
+                </div>
+                <div class="form-group">
+                    <label for="taskNotes">GHI CHÚ / KHÓ KHĂN, VƯỚNG MẮC CẦN LƯU Ý</label>
+                    <input type="text" id="taskNotes" placeholder="Ghi chú thêm vướng mắc nếu có...">
+                </div>
+            </div>
+
+            <div class="form-grid split-grid" id="taskQualityFields" hidden>
+                <div class="form-group">
+                    <label for="taskQualityBand">CHẤT LƯỢNG</label>
+                    <select id="taskQualityBand"></select>
+                </div>
+                <div class="form-group">
+                    <label for="taskQualityScorePercent">ĐIỂM CHẤT LƯỢNG (%)</label>
+                    <input type="number" id="taskQualityScorePercent" min="0" max="120" step="1" placeholder="Nhập điểm %">
+                </div>
+            </div>
+
+            <div class="form-grid split-grid" id="taskScheduleFields" hidden>
+                <div class="form-group">
+                    <label for="taskScheduleBand">TIẾN ĐỘ / NHẮC NHỞ</label>
+                    <select id="taskScheduleBand"></select>
+                </div>
+                <div class="form-group">
+                    <label for="taskScheduleScorePercent">ĐIỂM KPI-C (%)</label>
+                    <input type="number" id="taskScheduleScorePercent" min="0" max="120" step="1" placeholder="Nhập điểm %">
+                </div>
+            </div>
+
+            <div id="formActions" class="form-action-row">
+                <button class="btn btn-primary" id="saveTaskButton" type="button">💾 Cập nhật hệ thống giám sát</button>
+            </div>
+        </section>
+
+        <section class="control-panel dashboard-filters">
+            <div class="dashboard-filter-top">
+                <div class="filter-group month-filter-group">
+                    <label for="monthFilter">THÁNG BÁO CÁO:</label>
+                    <input type="month" id="monthFilter">
+                </div>
+                <div class="control-actions top-actions">
+                    <a class="btn btn-secondary icon-only-btn" href="/settings.html" aria-label="Cài đặt" title="Cài đặt">⚙️</a>
+                </div>
+            </div>
+            <div class="dashboard-filter-bottom">
+                <div class="filter-cluster">
+                    <div class="filter-group">
+                        <label for="assignerFilter">BỘ LỌC LÃNH ĐẠO GIAO VIỆC:</label>
+                        <select id="assignerFilter"></select>
+                    </div>
+                    <div class="filter-group secondary-filter">
+                        <label for="unitFilter">BỘ LỌC ĐƠN VỊ TRỰC THUỘC:</label>
+                        <select id="unitFilter"></select>
+                    </div>
+                </div>
+                <div class="control-actions">
+                    <button class="btn btn-excel" id="exportExcelButton" type="button">📥 Xuất toàn bộ báo cáo thống kê & chi tiết (Excel)</button>
+                </div>
+            </div>
+        </section>
+
+        <div class="summary-box">
+            <div class="stat-card total-card">Tổng số công việc <span id="total-tasks">0</span></div>
+            <div class="stat-card done-card">Đã hoàn thành <span id="done-tasks">0</span></div>
+            <div class="stat-card pending-card">Đang triển khai <span id="pending-tasks">0</span></div>
+            <div class="stat-card delayed-card">Trễ hạn / Chậm tiến độ <span id="delayed-tasks">0</span></div>
+        </div>
+
+        <h3 class="section-title">📊 1. Bảng tổng hợp tiến độ & hiệu suất theo từng đội</h3>
+        <section class="table-container">
+            <table id="summaryTable" class="summary-table">
+                <thead>
+                    <tr class="secondary-head">
+                        <th class="text-center w-5">STT</th>
+                        <th class="w-30">Đơn vị trực thuộc</th>
+                        <th class="text-center w-13">Tổng số nhiệm vụ</th>
+                        <th class="text-center w-13">Đã hoàn thành<br><small>(Vượt / Đúng / Chậm)</small></th>
+                        <th class="text-center w-13">Đang triển khai</th>
+                        <th class="text-center w-13">Chậm tiến độ</th>
+                        <th class="text-center w-13">Tỷ lệ hoàn thành (%)</th>
+                        <th class="text-center w-13">KPI-A</th>
+                        <th class="text-center w-13">KPI-B</th>
+                        <th class="text-center w-13">KPI-C</th>
+                        <th class="text-center w-13">KPI</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryTableBody"></tbody>
+            </table>
+        </section>
+        <div class="summary-note">
+            <strong>Lưu ý cách hiểu trạng thái:</strong> Chậm tiến độ là công việc chưa hoàn thành nhưng đang trễ; Hoàn thành chậm tiến độ là công việc đã hoàn thành nhưng kết thúc sau hạn hoặc sau khi đã bị nhắc tiến độ.
+        </div>
+
+        <h3 class="section-title">📋 2. Bảng chi tiết theo dõi tiến độ công việc “6 rõ”</h3>
+        <section class="table-container">
+            <table id="targetTable">
+                <thead>
+                    <tr>
+                        <th class="text-center w-3">STT</th>
+                        <th class="w-10">1. LÃNH ĐẠO GIAO</th>
+                        <th class="w-14">2. RÕ VIỆC</th>
+                        <th class="w-11">3. RÕ NGƯỜI (Đơn vị)</th>
+                        <th class="w-12">4. RÕ TIẾN ĐỘ & ĐẾM NGƯỢC</th>
+                        <th class="w-11">5. RÕ KẾT QUẢ ĐẦU RA</th>
+                        <th class="w-10">6. RÕ TRÁCH NHIỆM</th>
+                        <th class="w-10">7. RÕ THẨM QUYỀN</th>
+                        <th class="w-11">CẬP NHẬT KẾT QUẢ THỰC TẾ</th>
+                        <th class="w-8">GHI CHÚ</th>
+                        <th class="w-7 no-export">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="taskTableBody"></tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="/assets/js/app.js"></script>
+    <script src="/assets/js/dashboard.js"></script>
+</body>
+</html>
