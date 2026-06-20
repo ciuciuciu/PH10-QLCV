@@ -1,18 +1,27 @@
 {
   "name": "hau-can-app",
   "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "homepage": "https://github.com/ciuciuciu/PH10-QLCV#readme",
+  "bugs": {
+    "url": "https://github.com/ciuciuciu/PH10-QLCV/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ciuciuciu/PH10-QLCV.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
   "main": "server.js",
-  "description": "",  
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "sqlite3": "^6.0.1"
-  }
+  },
+  "devDependencies": {}
 }

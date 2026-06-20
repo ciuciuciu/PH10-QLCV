@@ -130,6 +130,14 @@ function validateScheduleFields(taskPayload) {
         return "Muc KPI C khong hop le.";
     }
 
+    if (statusCode === "done" && scheduleBand !== "ahead" && scheduleBand !== "on_time") {
+        return "Cong viec da hoan thanh chi duoc chon muc KPI C Vuot tien do hoac Dung han.";
+    }
+
+    if (statusCode === "delayed" && (scheduleBand === "ahead" || scheduleBand === "on_time")) {
+        return "Cong viec cham tien do phai chon muc KPI C phan anh hoan thanh muon.";
+    }
+
     const score = parseScheduleScore(rawScheduleScore);
     if (score === null || score < 0 || score > 1.2) {
         return "Diem KPI C phai nam trong khoang tu 0 den 1.2.";

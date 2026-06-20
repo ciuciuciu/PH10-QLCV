@@ -26,7 +26,7 @@
             <h3 id="formTitle">2. Giao việc mới & thiết lập tiêu chí chỉ đạo</h3>
             <input type="hidden" id="editTaskId" value="">
 
-            <div class="form-grid">
+            <div class="form-grid form-grid-four">
                 <div class="form-group">
                     <label for="taskAssigner">1. RÕ LÃNH ĐẠO GIAO VIỆC (Cấp chỉ đạo)</label>
                     <select id="taskAssigner"></select>
@@ -43,6 +43,9 @@
                     <label for="taskDeadline">4. TIẾN ĐỘ (Hạn cuối hoàn thành)</label>
                     <input type="date" id="taskDeadline">
                 </div>
+            </div>
+
+            <div class="form-grid form-grid-three">
                 <div class="form-group">
                     <label for="taskResult">5. RÕ KẾT QUẢ (Sản phẩm đầu ra tiêu chuẩn)</label>
                     <input type="text" id="taskResult" placeholder="Sản phẩm đầu ra...">
@@ -55,17 +58,9 @@
                     <label for="taskAuthority">7. RÕ THẨM QUYỀN (Cấp phê duyệt cuối)</label>
                     <input type="text" id="taskAuthority" placeholder="Cấp duyệt...">
                 </div>
-                <div class="form-group">
-                    <label for="taskStatus">TRẠNG THÁI TRIỂN KHAI</label>
-                    <select id="taskStatus">
-                        <option value="in_progress">Đang triển khai (chưa quá hạn)</option>
-                        <option value="delayed">Chậm tiến độ (chưa hoàn thành)</option>
-                        <option value="done">Đã hoàn thành</option>
-                    </select>
-                </div>
             </div>
 
-            <div class="form-grid split-grid" id="taskDetailFields">
+            <div class="form-grid form-grid-three" id="taskDetailFields">
                 <div class="form-group">
                     <label for="taskProgressUpdate">CẬP NHẬT KẾT QUẢ THỰC TẾ ĐẾN HIỆN TẠI</label>
                     <input type="text" id="taskProgressUpdate" placeholder="Ví dụ: Đã khảo sát xong, đang trình Ban Giám đốc...">
@@ -74,29 +69,43 @@
                     <label for="taskNotes">GHI CHÚ / KHÓ KHĂN, VƯỚNG MẮC CẦN LƯU Ý</label>
                     <input type="text" id="taskNotes" placeholder="Ghi chú thêm vướng mắc nếu có...">
                 </div>
-            </div>
-
-            <div class="form-grid split-grid" id="taskQualityFields" hidden>
                 <div class="form-group">
-                    <label for="taskQualityBand">CHẤT LƯỢNG</label>
-                    <select id="taskQualityBand"></select>
-                </div>
-                <div class="form-group">
-                    <label for="taskQualityScorePercent">ĐIỂM CHẤT LƯỢNG (%)</label>
-                    <input type="number" id="taskQualityScorePercent" min="0" max="120" step="1" placeholder="Nhập điểm %">
+                    <label for="taskStatus">TRẠNG THÁI TRIỂN KHAI</label>
+                    <select id="taskStatus">
+                        <option value="in_progress">Đang triển khai</option>
+                        <option value="done">Đã hoàn thành</option>
+                        <option value="delayed">Chậm tiến độ</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="form-grid split-grid" id="taskScheduleFields" hidden>
-                <div class="form-group">
-                    <label for="taskScheduleBand">TIẾN ĐỘ / NHẮC NHỞ</label>
-                    <select id="taskScheduleBand"></select>
+            <fieldset class="criteria-group" id="taskQualityFields" hidden>
+                <legend class="criteria-group-legend">Tiêu chí Chất lượng</legend>
+                <div class="form-grid form-grid-two">
+                    <div class="form-group">
+                        <label for="taskQualityBand">CHẤT LƯỢNG</label>
+                        <select id="taskQualityBand"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskQualityScorePercent">ĐIỂM CHẤT LƯỢNG (%)</label>
+                        <input type="number" id="taskQualityScorePercent" min="0" max="120" step="1" placeholder="Nhập điểm %">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="taskScheduleScorePercent">ĐIỂM KPI-C (%)</label>
-                    <input type="number" id="taskScheduleScorePercent" min="0" max="120" step="1" placeholder="Nhập điểm %">
+            </fieldset>
+
+            <fieldset class="criteria-group" id="taskScheduleFields" hidden>
+                <legend class="criteria-group-legend">Tiêu chí Tiến độ</legend>
+                <div class="form-grid form-grid-two">
+                    <div class="form-group">
+                        <label for="taskScheduleBand">TIẾN ĐỘ / NHẮC NHỞ</label>
+                        <select id="taskScheduleBand"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskScheduleScorePercent">ĐIỂM KPI-C (%)</label>
+                        <input type="number" id="taskScheduleScorePercent" min="0" max="120" step="1" placeholder="Nhập điểm %">
+                    </div>
                 </div>
-            </div>
+            </fieldset>
 
             <div id="formActions" class="form-action-row">
                 <button class="btn btn-primary" id="saveTaskButton" type="button">💾 Cập nhật hệ thống giám sát</button>
@@ -134,7 +143,7 @@
             <div class="stat-card total-card">Tổng số công việc <span id="total-tasks">0</span></div>
             <div class="stat-card done-card">Đã hoàn thành <span id="done-tasks">0</span></div>
             <div class="stat-card pending-card">Đang triển khai <span id="pending-tasks">0</span></div>
-            <div class="stat-card delayed-card">Trễ hạn / Chậm tiến độ <span id="delayed-tasks">0</span></div>
+            <div class="stat-card delayed-card">Chậm tiến độ <span id="delayed-tasks">0</span></div>
         </div>
 
         <h3 class="section-title">📊 1. Bảng tổng hợp tiến độ & hiệu suất theo từng đội</h3>
@@ -145,7 +154,7 @@
                         <th class="text-center w-5">STT</th>
                         <th class="w-30">Đơn vị trực thuộc</th>
                         <th class="text-center w-13">Tổng số nhiệm vụ</th>
-                        <th class="text-center w-13">Đã hoàn thành<br><small>(Vượt / Đúng / Chậm)</small></th>
+                        <th class="text-center w-13">Đã hoàn thành</th>
                         <th class="text-center w-13">Đang triển khai</th>
                         <th class="text-center w-13">Chậm tiến độ</th>
                         <th class="text-center w-13">Tỷ lệ hoàn thành (%)</th>
@@ -159,7 +168,7 @@
             </table>
         </section>
         <div class="summary-note">
-            <strong>Lưu ý cách hiểu trạng thái:</strong> Chậm tiến độ là công việc chưa hoàn thành nhưng đang trễ; Hoàn thành chậm tiến độ là công việc đã hoàn thành nhưng kết thúc sau hạn hoặc sau khi đã bị nhắc tiến độ.
+            <strong>Lưu ý cách hiểu trạng thái:</strong> Chậm tiến độ là công việc đã hoàn thành nhưng hoàn thành sau hạn. Công việc chưa hoàn thành nhưng đã quá hạn vẫn thuộc trạng thái Đang triển khai và được cảnh báo bằng bộ đếm ngược.
         </div>
 
         <h3 class="section-title">📋 2. Bảng chi tiết theo dõi tiến độ công việc “6 rõ”</h3>

@@ -282,22 +282,46 @@ a {
     margin-bottom: 20px;
 }
 
-.split-grid {
-    grid-template-columns: 1fr 1fr;
+.form-grid-four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.inline-detail-grid {
-    display: inline-grid;
-    width: calc(50% - 10px);
-    vertical-align: top;
+.form-grid-three {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-#taskDetailFields.inline-detail-grid {
-    margin-right: 16px;
+.form-grid-two {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 #taskQualityFields[hidden] {
     display: none !important;
+}
+
+#taskScheduleFields[hidden] {
+    display: none !important;
+}
+
+.criteria-group {
+    margin: 0 0 20px;
+    padding: 18px 16px 16px;
+    border: 1px solid #cbd5e0;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.criteria-group-legend {
+    margin-left: 8px;
+    padding: 0 8px;
+    color: #1a365d;
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+}
+
+.criteria-group .form-grid {
+    margin-bottom: 0;
 }
 
 .form-group {
@@ -463,6 +487,11 @@ tr:hover {
     color: #c05621;
 }
 
+.status-overdue {
+    background-color: #fed7d7;
+    color: #9b2c2c;
+}
+
 .status-delayed {
     background-color: #fed7d7;
     color: #9b2c2c;
@@ -471,11 +500,6 @@ tr:hover {
 .status-done {
     background-color: #c6f6d5;
     color: #22543d;
-}
-
-.status-done-late {
-    background-color: #fed7d7;
-    color: #9b2c2c;
 }
 
 .unit-tag {
@@ -734,18 +758,10 @@ tr:hover {
     }
 
     .summary-box,
-    .split-grid,
-    .inline-detail-grid {
+    .form-grid-four,
+    .form-grid-three,
+    .form-grid-two {
         grid-template-columns: 1fr;
-    }
-
-    .inline-detail-grid {
-        display: grid;
-        width: 100%;
-    }
-
-    #taskDetailFields.inline-detail-grid {
-        margin-right: 0;
     }
 
     .settings-shell {
@@ -777,5 +793,13 @@ tr:hover {
     .control-actions {
         flex-direction: column;
         align-items: stretch;
+    }
+}
+
+@media (min-width: 1025px) and (max-width: 1320px) {
+    .form-grid-four,
+    .form-grid-three,
+    .form-grid-two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }

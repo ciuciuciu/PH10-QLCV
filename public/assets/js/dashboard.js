@@ -169,10 +169,12 @@
             .join("");
     }
 
+    function requiresCompletedCriteria(statusCode = taskStatus.value) {
+        return statusCode === "done" || statusCode === "delayed";
+    }
+
     function resetQualityFields() {
         taskQualityFields.hidden = true;
-        taskDetailFields.classList.remove("inline-detail-grid");
-        taskQualityFields.classList.remove("inline-detail-grid");
         taskQualityBand.value = "standard";
         taskQualityScorePercent.value = "100";
         taskQualityScorePercent.min = "0";
@@ -204,15 +206,12 @@
     }
 
     function syncQualityFieldsWithStatus(preserveCurrentValue = false) {
-        const requiresQualityInput = taskStatus.value === "done" || taskStatus.value === "delayed";
-        if (!requiresQualityInput) {
+        if (!requiresCompletedCriteria()) {
             resetQualityFields();
             return;
         }
 
         taskQualityFields.hidden = false;
-        taskDetailFields.classList.add("inline-detail-grid");
-        taskQualityFields.classList.add("inline-detail-grid");
         if (!taskQualityBand.innerHTML.trim()) {
             renderQualityBandOptions("standard");
         }
@@ -283,19 +282,44 @@
         return Array.isArray(state.config?.kpiCOptions) ? state.config.kpiCOptions : [];
     }
 
+    function getScheduleBandOptionsForStatus(statusCode) {
+        const options = getScheduleBandOptions();
+        if (statusCode === "done") {
+            return options.filter((item) => item.code === "ahead" || item.code === "on_time");
+        }
+
+        if (statusCode === "delayed") {
+            return options.filter((item) => item.code !== "ahead" && item.code !== "on_time");
+        }
+
+        return options.filter((item) => item.code === "on_time");
+    }
+
     function getScheduleBandConfig(code) {
         return getScheduleBandOptions().find((item) => item.code === code) || null;
     }
 
-    function renderScheduleBandOptions(selectedCode = "") {
-        const options = getScheduleBandOptions();
+    function getDefaultScheduleBandForStatus(statusCode) {
+        return statusCode === "delayed" ? "remind_1" : "on_time";
+    }
+
+    function isScheduleBandAllowedForStatus(statusCode, bandCode) {
+        return getScheduleBandOptionsForStatus(statusCode).some((item) => item.code === bandCode);
+    }
+
+    function renderScheduleBandOptions(selectedCode = "", statusCode = taskStatus.value) {
+        const options = getScheduleBandOptionsForStatus(statusCode);
+        const resolvedSelectedCode = isScheduleBandAllowedForStatus(statusCode, selectedCode)
+            ? selectedCode
+            : (options[0]?.code || "");
         taskScheduleBand.innerHTML = options
-            .map((item) => `<option value="${item.code}"${item.code === selectedCode ? " selected" : ""}>${App.escapeHtml(item.label)}</option>`)
+            .map((item) => `<option value="${item.code}"${item.code === resolvedSelectedCode ? " selected" : ""}>${App.escapeHtml(item.label)}</option>`)
             .join("");
     }
 
     function resetScheduleFields() {
         taskScheduleFields.hidden = true;
+        renderScheduleBandOptions("on_time", "in_progress");
         taskScheduleBand.value = "on_time";
         taskScheduleScorePercent.value = "100";
         taskScheduleScorePercent.min = "0";
@@ -327,19 +351,17 @@
     }
 
     function syncScheduleFieldsWithStatus(preserveCurrentValue = false) {
-        const requiresScheduleInput = taskStatus.value === "done" || taskStatus.value === "delayed";
-        if (!requiresScheduleInput) {
+        if (!requiresCompletedCriteria()) {
             resetScheduleFields();
             return;
         }
 
         taskScheduleFields.hidden = false;
-        if (!taskScheduleBand.innerHTML.trim()) {
-            renderScheduleBandOptions("on_time");
-        }
+        const preferredBand = taskScheduleBand.value || getDefaultScheduleBandForStatus(taskStatus.value);
+        renderScheduleBandOptions(preferredBand, taskStatus.value);
 
-        if (!taskScheduleBand.value) {
-            taskScheduleBand.value = "on_time";
+        if (!isScheduleBandAllowedForStatus(taskStatus.value, taskScheduleBand.value)) {
+            taskScheduleBand.value = getDefaultScheduleBandForStatus(taskStatus.value);
         }
 
         applyScheduleBandConfig(preserveCurrentValue);
@@ -347,70 +369,14 @@
 
     function displayStatusName(task) {
         if (task.status_code === "done") {
-            if (task.schedule_band === "ahead") {
-                return "Hoàn thành vượt tiến độ";
-            }
-
-            if (task.schedule_band === "on_time") {
-                return "Hoàn thành đúng tiến độ";
-            }
-
-            return "Hoàn thành chậm tiến độ";
+            return "Đã hoàn thành";
         }
 
-        if (task.display_status_code === "delayed") {
-            return "Chậm tiến độ (chưa hoàn thành)";
+        if (task.status_code === "delayed") {
+            return "Chậm tiến độ";
         }
 
         return "Đang triển khai";
-    }
-
-    function getCompletedStatusCounts(tasks = []) {
-        return tasks.reduce((summary, task) => {
-            if (task?.status_code !== "done") {
-                return summary;
-            }
-
-            summary.total += 1;
-
-            if (task.schedule_band === "ahead") {
-                summary.ahead += 1;
-            } else if (task.schedule_band === "on_time") {
-                summary.onTime += 1;
-            } else {
-                summary.late += 1;
-            }
-
-            return summary;
-        }, {
-            total: 0,
-            ahead: 0,
-            onTime: 0,
-            late: 0
-        });
-    }
-
-    function renderCompletedSummaryCell(total, counts) {
-        const safeCounts = counts || {
-            ahead: 0,
-            onTime: 0,
-            late: 0
-        };
-
-        return `
-            <div class="completion-cell">
-                <div class="completion-total">${total}</div>
-                <div class="completion-breakdown">Vượt: ${safeCounts.ahead}</div>
-                <div class="completion-breakdown">Đúng: ${safeCounts.onTime}</div>
-                <div class="completion-breakdown">Chậm: ${safeCounts.late}</div>
-            </div>
-        `;
-    }
-
-    function isCompletedLate(task) {
-        return task?.status_code === "done"
-            && task?.schedule_band !== "ahead"
-            && task?.schedule_band !== "on_time";
     }
 
     function getFilteredTasks() {
@@ -441,7 +407,7 @@
     }
 
     function getCountdownTemplate(task) {
-        if (task.display_status_code === "done") {
+        if (task.status_code === "done" || task.status_code === "delayed") {
             return "✓ Đã hoàn thành";
         }
 
@@ -465,12 +431,16 @@
     }
 
     function getStatusClass(task) {
-        if (task.display_status_code === "done") {
-            return isCompletedLate(task) ? "status-done-late" : "status-done";
+        if (task.status_code === "done") {
+            return "status-done";
         }
 
-        if (task.display_status_code === "delayed") {
+        if (task.status_code === "delayed") {
             return "status-delayed";
+        }
+
+        if (task.is_overdue) {
+            return "status-overdue";
         }
 
         return "status-ontrack";
@@ -513,16 +483,12 @@
     }
 
     function suggestProgressPercent(statusCode, existingTask) {
-        if (statusCode === "done") {
+        if (statusCode === "done" || statusCode === "delayed") {
             return 100;
         }
 
         if (existingTask && Number.isFinite(existingTask.progress_percent)) {
             return existingTask.progress_percent;
-        }
-
-        if (statusCode === "delayed") {
-            return 35;
         }
 
         return 50;
@@ -541,7 +507,7 @@
         taskProgressUpdate.value = "";
         taskNotes.value = "";
         renderQualityBandOptions("standard");
-        renderScheduleBandOptions("on_time");
+        renderScheduleBandOptions("on_time", "in_progress");
         resetQualityFields();
         resetScheduleFields();
         formTitle.textContent = "2. Giao việc mới & thiết lập tiêu chí chỉ đạo";
@@ -563,14 +529,16 @@
         taskResult.value = task.expected_result || "";
         taskOwner.value = task.owner_name || "";
         taskAuthority.value = task.authority_name || "";
-        taskStatus.value = task.display_status_code === "delayed" ? "delayed" : task.status_code;
+        taskStatus.value = task.status_code;
         taskProgressUpdate.value = task.latest_update || "";
         taskNotes.value = task.latest_issue || "";
         renderQualityBandOptions(task.quality_band || "standard");
         taskQualityBand.value = task.quality_band || "standard";
         taskQualityScorePercent.value = denormalizeQualityScore(task.quality_score);
-        renderScheduleBandOptions(task.schedule_band || "on_time");
-        taskScheduleBand.value = task.schedule_band || "on_time";
+        renderScheduleBandOptions(task.schedule_band || getDefaultScheduleBandForStatus(task.status_code), task.status_code);
+        taskScheduleBand.value = isScheduleBandAllowedForStatus(task.status_code, task.schedule_band)
+            ? task.schedule_band
+            : getDefaultScheduleBandForStatus(task.status_code);
         taskScheduleScorePercent.value = denormalizeScheduleScore(task.schedule_score);
         syncQualityFieldsWithStatus(true);
         syncScheduleFieldsWithStatus(true);
@@ -603,31 +571,34 @@
     function renderSummary() {
         summaryTableBody.innerHTML = "";
         const filteredTasks = getFilteredTasks();
-        const totalCompletedCounts = getCompletedStatusCounts(filteredTasks);
-        const completedCountsByUnit = filteredTasks.reduce((lookup, task) => {
-            if (!lookup[task.unit_code]) {
-                lookup[task.unit_code] = getCompletedStatusCounts();
-            }
+        const activeUnits = state.config.orgUnits.filter((item) => !item.disabled);
+        const summaryUnits = unitFilter.value !== "ALL"
+            ? activeUnits.filter((item) => item.code === unitFilter.value)
+            : activeUnits;
+        const computedUnits = summaryUnits.map((unit, index) => {
+            const unitTasks = filteredTasks.filter((task) => task.unit_code === unit.code);
+            const assignedCount = unitTasks.length;
+            const doneCount = unitTasks.filter((task) => task.status_code === "done").length;
+            const delayedCount = unitTasks.filter((task) => task.status_code === "delayed").length;
+            const completedCount = doneCount + delayedCount;
+            const pendingCount = Math.max(assignedCount - completedCount, 0);
 
-            if (task.status_code !== "done") {
-                return lookup;
-            }
-
-            lookup[task.unit_code].total += 1;
-
-            if (task.schedule_band === "ahead") {
-                lookup[task.unit_code].ahead += 1;
-            } else if (task.schedule_band === "on_time") {
-                lookup[task.unit_code].onTime += 1;
-            } else {
-                lookup[task.unit_code].late += 1;
-            }
-
-            return lookup;
-        }, {});
-        const summaryUnits = state.kpiASummary?.units || [];
+            return {
+                order: index + 1,
+                unit_code: unit.code,
+                unit_name: unit.name,
+                assigned_count: assignedCount,
+                done_count: doneCount,
+                completed_count: completedCount,
+                pending_count: pendingCount,
+                delayed_count: delayedCount,
+                kpi_a_score: assignedCount ? (completedCount / assignedCount) : 0,
+                kpi_a_percent: assignedCount ? Math.round((completedCount / assignedCount) * 100) : 0
+            };
+        });
         const summaryTotals = state.kpiASummary?.totals || {
             assigned_count: 0,
+            done_count: 0,
             completed_count: 0,
             completed_ahead_count: 0,
             completed_on_time_count: 0,
@@ -646,18 +617,16 @@
             kpi_c_score: 0
         };
 
-        summaryUnits.forEach((unit) => {
+        computedUnits.forEach((unit) => {
             const kpiBUnit = kpiBUnitLookup[unit.unit_code] || { kpi_b_score: 0 };
             const kpiCUnit = kpiCUnitLookup[unit.unit_code] || { kpi_c_score: 0 };
             const finalKpi = calculateFinalKpiScore(unit.kpi_a_score, kpiBUnit.kpi_b_score, kpiCUnit.kpi_c_score);
-            const completedCounts = completedCountsByUnit[unit.unit_code] || getCompletedStatusCounts();
-
             summaryTableBody.innerHTML += `
                 <tr>
                     <td class="text-center">${unit.order}</td>
                     <td class="fw-bold">${App.escapeHtml(unit.unit_name)}</td>
                     <td class="text-center fw-bold stat-total">${unit.assigned_count}</td>
-                    <td class="text-center fw-bold stat-done">${renderCompletedSummaryCell(unit.completed_count, completedCounts)}</td>
+                    <td class="text-center fw-bold stat-done">${unit.done_count}</td>
                     <td class="text-center fw-bold stat-pending">${unit.pending_count}</td>
                     <td class="text-center fw-bold stat-delayed">${unit.delayed_count}</td>
                     <td class="text-center fw-bold highlight-cell">${unit.kpi_a_percent}%</td>
@@ -669,8 +638,28 @@
             `;
         });
 
+        const computedTotals = computedUnits.reduce((summary, unit) => ({
+            assigned_count: summary.assigned_count + unit.assigned_count,
+            done_count: summary.done_count + unit.done_count,
+            completed_count: summary.completed_count + unit.completed_count,
+            pending_count: summary.pending_count + unit.pending_count,
+            delayed_count: summary.delayed_count + unit.delayed_count
+        }), {
+            assigned_count: 0,
+            done_count: 0,
+            completed_count: 0,
+            pending_count: 0,
+            delayed_count: 0
+        });
+        const resolvedSummaryTotals = {
+            ...summaryTotals,
+            ...computedTotals,
+            kpi_a_score: computedTotals.assigned_count ? (computedTotals.completed_count / computedTotals.assigned_count) : 0,
+            kpi_a_percent: computedTotals.assigned_count ? Math.round((computedTotals.completed_count / computedTotals.assigned_count) * 100) : 0
+        };
+
         const finalKpiTotal = calculateFinalKpiScore(
-            summaryTotals.kpi_a_score,
+            resolvedSummaryTotals.kpi_a_score,
             summaryBTotal.kpi_b_score,
             summaryCTotal.kpi_c_score
         );
@@ -678,22 +667,22 @@
         summaryTableBody.innerHTML += `
             <tr class="total-row">
                 <td colspan="2" class="text-center">TỔNG CỘNG TOÀN PHÒNG</td>
-                <td class="text-center stat-total">${summaryTotals.assigned_count}</td>
-                <td class="text-center stat-done">${renderCompletedSummaryCell(summaryTotals.completed_count, totalCompletedCounts)}</td>
-                <td class="text-center stat-pending">${summaryTotals.pending_count}</td>
-                <td class="text-center stat-delayed">${summaryTotals.delayed_count}</td>
-                <td class="text-center highlight-total">${summaryTotals.kpi_a_percent}%</td>
-                <td class="text-center highlight-total">${formatKpiAScore(summaryTotals.kpi_a_score)}</td>
+                <td class="text-center stat-total">${resolvedSummaryTotals.assigned_count}</td>
+                <td class="text-center stat-done">${resolvedSummaryTotals.done_count}</td>
+                <td class="text-center stat-pending">${resolvedSummaryTotals.pending_count}</td>
+                <td class="text-center stat-delayed">${resolvedSummaryTotals.delayed_count}</td>
+                <td class="text-center highlight-total">${resolvedSummaryTotals.kpi_a_percent}%</td>
+                <td class="text-center highlight-total">${formatKpiAScore(resolvedSummaryTotals.kpi_a_score)}</td>
                 <td class="text-center highlight-total">${formatKpiAScore(summaryBTotal.kpi_b_score)}</td>
                 <td class="text-center highlight-total">${formatKpiAScore(summaryCTotal.kpi_c_score)}</td>
                 <td class="text-center highlight-total">${formatKpiAScore(finalKpiTotal)}%</td>
             </tr>
         `;
 
-        totalTasks.textContent = summaryTotals.assigned_count;
-        doneTasks.textContent = summaryTotals.completed_count;
-        pendingTasks.textContent = summaryTotals.pending_count;
-        delayedTasks.textContent = summaryTotals.delayed_count;
+        totalTasks.textContent = resolvedSummaryTotals.assigned_count;
+        doneTasks.textContent = resolvedSummaryTotals.done_count;
+        pendingTasks.textContent = resolvedSummaryTotals.pending_count;
+        delayedTasks.textContent = resolvedSummaryTotals.delayed_count;
     }
 
     function renderTaskTable() {
@@ -969,24 +958,25 @@
         let summaryRows = "";
         let grandTotal = 0;
         let grandDone = 0;
+        let grandCompleted = 0;
         let grandPending = 0;
         let grandDelayed = 0;
 
         state.config.orgUnits.filter((unit) => !unit.disabled).forEach((unit, index) => {
             const unitTasks = filteredTasks.filter((task) => task.unit_code === unit.code);
             const total = unitTasks.length;
-            const done = unitTasks.filter((task) => task.display_status_code === "done").length;
-            const delayed = unitTasks.filter((task) => task.display_status_code === "delayed").length;
-            const pending = total - done - delayed;
-            const kpiAScore = total ? (done / total) : 0;
+            const done = unitTasks.filter((task) => task.status_code === "done").length;
+            const delayed = unitTasks.filter((task) => task.status_code === "delayed").length;
+            const completed = done + delayed;
+            const pending = total - completed;
+            const kpiAScore = total ? (completed / total) : 0;
             const kpiBScore = exportKpiBLookup[unit.code]?.kpi_b_score || 0;
             const kpiCScore = exportKpiCLookup[unit.code]?.kpi_c_score || 0;
             const finalKpiScore = calculateFinalKpiScore(kpiAScore, kpiBScore, kpiCScore);
-            const percent = total ? Math.round((done / total) * 100) : 0;
-            const completionCounts = getCompletedStatusCounts(unitTasks);
-
+            const percent = total ? Math.round((completed / total) * 100) : 0;
             grandTotal += total;
             grandDone += done;
+            grandCompleted += completed;
             grandPending += pending;
             grandDelayed += delayed;
 
@@ -995,7 +985,7 @@
                     <td class="text-center">${index + 1}</td>
                     <td class="text-left font-bold">${unit.name}</td>
                     <td class="text-center font-bold">${total}</td>
-                    <td class="text-center font-bold text-success">${renderCompletedSummaryCell(done, completionCounts)}</td>
+                    <td class="text-center font-bold text-success">${done}</td>
                     <td class="text-center font-bold text-warning">${pending}</td>
                     <td class="text-center font-bold text-danger">${delayed}</td>
                     <td class="text-center font-bold highlight-cell">${percent}%</td>
@@ -1007,17 +997,16 @@
             `;
         });
 
-        const grandKpiAScore = grandTotal ? (grandDone / grandTotal) : 0;
+        const grandKpiAScore = grandTotal ? (grandCompleted / grandTotal) : 0;
         const grandKpiBScore = state.kpiBSummary?.totals?.kpi_b_score || 0;
         const grandKpiCScore = state.kpiCSummary?.totals?.kpi_c_score || 0;
         const grandFinalKpiScore = calculateFinalKpiScore(grandKpiAScore, grandKpiBScore, grandKpiCScore);
-        const grandPercent = grandTotal ? Math.round((grandDone / grandTotal) * 100) : 0;
-        const grandCompletionCounts = getCompletedStatusCounts(filteredTasks);
+        const grandPercent = grandTotal ? Math.round((grandCompleted / grandTotal) * 100) : 0;
         const summaryTotalRow = `
             <tr class="total-row">
                 <td colspan="2" class="text-center font-bold">TỔNG CỘNG TOÀN PHÒNG</td>
                 <td class="text-center font-bold">${grandTotal}</td>
-                <td class="text-center font-bold text-success">${renderCompletedSummaryCell(grandDone, grandCompletionCounts)}</td>
+                <td class="text-center font-bold text-success">${grandDone}</td>
                 <td class="text-center font-bold text-warning">${grandPending}</td>
                 <td class="text-center font-bold text-danger">${grandDelayed}</td>
                 <td class="text-center font-bold highlight-total">${grandPercent}%</td>
@@ -1033,11 +1022,13 @@
         filteredTasks.forEach((task) => {
             count += 1;
             const currentStatus = displayStatusName(task);
-            const statusColorClass = task.display_status_code === "done"
-                ? (isCompletedLate(task) ? "text-danger" : "text-success")
-                : task.display_status_code === "delayed"
+            const statusColorClass = task.status_code === "done"
+                ? "text-success"
+                : task.status_code === "delayed"
                     ? "text-danger"
-                    : "text-warning";
+                    : task.is_overdue
+                        ? "text-danger"
+                        : "text-warning";
 
             detailRows += `
                 <tr class="data-row">
@@ -1098,7 +1089,7 @@
                             <th style="width: 45px;">STT</th>
                             <th style="width: 250px;">Đơn vị trực thuộc</th>
                             <th style="width: 120px;">Tổng số nhiệm vụ</th>
-                            <th style="width: 180px;">Đã hoàn thành (Vượt / Đúng / Chậm)</th>
+                            <th style="width: 180px;">Đã hoàn thành</th>
                             <th style="width: 120px;">Đang triển khai</th>
                             <th style="width: 120px;">Chậm tiến độ</th>
                             <th style="width: 150px;">Tỷ lệ hoàn thành</th>
@@ -1112,7 +1103,7 @@
                 </table>
                 <br/>
                 <div style="font-size:10pt; color:#4a5568; margin-bottom:10px;">
-                    <strong>Lưu ý:</strong> "Chậm tiến độ" là công việc chưa hoàn thành nhưng đang trễ; "Hoàn thành chậm tiến độ" là công việc đã hoàn thành nhưng kết thúc sau hạn hoặc sau khi đã bị nhắc tiến độ.
+                    <strong>Lưu ý:</strong> "Chậm tiến độ" là công việc đã hoàn thành nhưng hoàn thành sau hạn. Công việc chưa hoàn thành nhưng đã quá hạn vẫn thuộc trạng thái "Đang triển khai" và được cảnh báo bằng bộ đếm ngược.
                 </div>
                 <div class="section-heading">II. BẢNG CHI TIẾT THEO DÕI TIẾN ĐỘ CÔNG VIỆC CỤ THỂ KHỐI HẬU CẦN</div>
                 <table>
@@ -1168,7 +1159,7 @@
             renderTaskAssignerOptions(getFirstActiveAssignerCode());
             renderTaskUnitOptions(getFirstActiveUnitCode());
             renderQualityBandOptions("standard");
-            renderScheduleBandOptions("on_time");
+            renderScheduleBandOptions("on_time", "in_progress");
             applyKpiFieldLabels();
 
             analyzeDocumentButton.addEventListener("click", analyzeDocument);
@@ -1219,5 +1210,3 @@
 
     await bootstrap();
 })();
-
-

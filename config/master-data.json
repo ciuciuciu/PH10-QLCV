@@ -115,14 +115,14 @@
       "tone": "info"
     },
     {
-      "code": "delayed",
-      "name": "Chậm tiến độ (chưa hoàn thành)",
-      "tone": "danger"
-    },
-    {
       "code": "done",
       "name": "Đã hoàn thành",
       "tone": "success"
+    },
+    {
+      "code": "delayed",
+      "name": "Chậm tiến độ",
+      "tone": "danger"
     }
   ],
   "priorityLevels": [

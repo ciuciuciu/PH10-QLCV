@@ -1,8 +1,16 @@
 "use strict";
 
+function isCompletedTask(task) {
+    return task?.status_code === "done" || task?.status_code === "delayed";
+}
+
 function getCompletionTimingCode(task) {
-    if (task?.status_code !== "done") {
+    if (!isCompletedTask(task)) {
         return "";
+    }
+
+    if (task?.status_code === "delayed") {
+        return "late";
     }
 
     if (task?.schedule_band === "ahead") {
@@ -117,7 +125,7 @@ function getAssignedTaskCountByMonth(tasks, options = {}) {
 }
 
 function getCompletedTaskCountByMonth(tasks, options = {}) {
-    return filterTasksByKpiAMonth(tasks, options).filter((task) => task.status_code === "done").length;
+    return filterTasksByKpiAMonth(tasks, options).filter((task) => isCompletedTask(task)).length;
 }
 
 function buildKpiASummary(options = {}) {
@@ -144,9 +152,10 @@ function buildKpiASummary(options = {}) {
         });
 
         const assignedCount = unitTasks.length;
-        const completedCount = unitTasks.filter((task) => task.status_code === "done").length;
-        const delayedCount = unitTasks.filter((task) => task.display_status_code === "delayed").length;
-        const pendingCount = Math.max(assignedCount - completedCount - delayedCount, 0);
+        const doneCount = unitTasks.filter((task) => task.status_code === "done").length;
+        const delayedCount = unitTasks.filter((task) => task.status_code === "delayed").length;
+        const completedCount = doneCount + delayedCount;
+        const pendingCount = Math.max(assignedCount - completedCount, 0);
         const completedAheadCount = unitTasks.filter((task) => getCompletionTimingCode(task) === "ahead").length;
         const completedOnTimeCount = unitTasks.filter((task) => getCompletionTimingCode(task) === "on_time").length;
         const completedLateCount = unitTasks.filter((task) => getCompletionTimingCode(task) === "late").length;
@@ -156,6 +165,7 @@ function buildKpiASummary(options = {}) {
             unit_code: orgUnit.code,
             unit_name: orgUnit.name,
             assigned_count: assignedCount,
+            done_count: doneCount,
             completed_count: completedCount,
             completed_ahead_count: completedAheadCount,
             completed_on_time_count: completedOnTimeCount,
@@ -169,6 +179,7 @@ function buildKpiASummary(options = {}) {
 
     const totals = units.reduce((aggregate, unit) => ({
         assigned_count: aggregate.assigned_count + unit.assigned_count,
+        done_count: aggregate.done_count + unit.done_count,
         completed_count: aggregate.completed_count + unit.completed_count,
         completed_ahead_count: aggregate.completed_ahead_count + unit.completed_ahead_count,
         completed_on_time_count: aggregate.completed_on_time_count + unit.completed_on_time_count,
@@ -177,6 +188,7 @@ function buildKpiASummary(options = {}) {
         delayed_count: aggregate.delayed_count + unit.delayed_count
     }), {
         assigned_count: 0,
+        done_count: 0,
         completed_count: 0,
         completed_ahead_count: 0,
         completed_on_time_count: 0,

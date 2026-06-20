@@ -127,17 +127,11 @@ function findByName(items, name) {
 function mapLegacyStatus(status, dueDate) {
     const normalizedStatus = normalizeText(status).toLowerCase();
     if (normalizedStatus.includes("hoan thanh")) {
-        return "done";
+        return normalizedStatus.includes("cham") ? "delayed" : "done";
     }
 
     if (normalizedStatus.includes("cham")) {
-        return "delayed";
-    }
-
-    const dueDateValue = toDateValue(dueDate);
-    const todayValue = toDateValue(todayIsoDate());
-    if (dueDateValue && todayValue && dueDateValue < todayValue) {
-        return "delayed";
+        return "in_progress";
     }
 
     return "in_progress";
@@ -147,9 +141,10 @@ function formatTask(task) {
     const masterData = getRuntimeConfig();
     const dueDateValue = toDateValue(task.due_date);
     const todayValue = toDateValue(todayIsoDate());
-    const isDone = task.status_code === "done";
-    const isDelayed = !isDone && dueDateValue && todayValue && dueDateValue < todayValue;
-    const displayStatusCode = isDelayed ? "delayed" : task.status_code;
+    const isCompleted = task.status_code === "done" || task.status_code === "delayed";
+    const isDelayed = task.status_code === "delayed";
+    const isOverdue = !isCompleted && dueDateValue && todayValue && dueDateValue < todayValue;
+    const displayStatusCode = task.status_code;
     const displayStatus = masterData.taskStatusLookup[displayStatusCode] || {
         code: displayStatusCode,
         name: task.status_code
@@ -160,7 +155,9 @@ function formatTask(task) {
         display_status_code: displayStatus.code,
         display_status_name: displayStatus.name,
         is_delayed: Boolean(isDelayed),
-        is_done: isDone
+        is_done: isCompleted,
+        is_completed: isCompleted,
+        is_overdue: Boolean(isOverdue)
     }, masterData.generalSettings?.kpiStartDay || 1);
 }
 
@@ -225,6 +222,28 @@ async function ensureTaskColumns() {
 
     await run("UPDATE tasks SET schedule_band = 'on_time' WHERE schedule_band IS NULL OR TRIM(schedule_band) = ''");
     await run("UPDATE tasks SET schedule_score = 1 WHERE schedule_score IS NULL");
+}
+
+async function normalizeTaskStatusesForImplementationRules() {
+    await run(`
+        UPDATE tasks
+        SET
+            status_code = 'in_progress',
+            quality_band = 'standard',
+            quality_score = 1,
+            schedule_band = 'on_time',
+            schedule_score = 1,
+            completed_at = NULL
+        WHERE status_code = 'delayed' AND (completed_at IS NULL OR TRIM(completed_at) = '')
+    `);
+
+    await run(`
+        UPDATE tasks
+        SET
+            status_code = 'delayed',
+            completed_at = COALESCE(NULLIF(TRIM(completed_at), ''), updated_at, created_at, CURRENT_TIMESTAMP)
+        WHERE status_code = 'done' AND schedule_band NOT IN ('ahead', 'on_time')
+    `);
 }
 
 async function findNextAvailableTableName(baseName) {
@@ -321,6 +340,7 @@ async function initializeDatabase() {
     await migrateLegacyTasksIfNeeded();
     await createTasksTable();
     await ensureTaskColumns();
+    await normalizeTaskStatusesForImplementationRules();
 }
 
 function validateTaskPayload(payload, currentTask = null) {
@@ -416,10 +436,11 @@ function validateTaskPayload(payload, currentTask = null) {
         };
     }
 
-    const qualityScore = statusCode === "done" || statusCode === "delayed"
+    const isCompletedStatus = statusCode === "done" || statusCode === "delayed";
+    const qualityScore = isCompletedStatus
         ? Math.round(Number(qualityScoreRaw) * 100) / 100
         : 1;
-    const scheduleScore = statusCode === "done" || statusCode === "delayed"
+    const scheduleScore = isCompletedStatus
         ? Math.round(Number(scheduleScoreRaw) * 100) / 100
         : 1;
 
@@ -438,12 +459,14 @@ function validateTaskPayload(payload, currentTask = null) {
             expected_result: expectedResult,
             latest_update: latestUpdate,
             latest_issue: latestIssue,
-            quality_band: statusCode === "done" || statusCode === "delayed" ? qualityBand : "standard",
+            quality_band: isCompletedStatus ? qualityBand : "standard",
             quality_score: qualityScore,
-            schedule_band: statusCode === "done" || statusCode === "delayed" ? scheduleBand : "on_time",
+            schedule_band: isCompletedStatus ? scheduleBand : "on_time",
             schedule_score: scheduleScore,
             due_date: dueDate,
-            completed_at: statusCode === "done" ? new Date().toISOString() : null
+            completed_at: isCompletedStatus
+                ? currentTask?.completed_at || new Date().toISOString()
+                : null
         }
     };
 }
@@ -727,7 +750,7 @@ app.get("/api/tasks", async (request, response) => {
         }
 
         if (status_code) {
-            tasks = tasks.filter((task) => task.display_status_code === status_code);
+            tasks = tasks.filter((task) => task.status_code === status_code);
         }
 
         if (priority_code) {
@@ -743,10 +766,10 @@ app.get("/api/tasks", async (request, response) => {
             const today = todayIsoDate();
             tasks = tasks.filter((task) => task.due_date === today);
         } else if (due_state === "overdue") {
-            tasks = tasks.filter((task) => task.is_delayed);
+            tasks = tasks.filter((task) => task.is_overdue);
         } else if (due_state === "upcoming") {
             const today = todayIsoDate();
-            tasks = tasks.filter((task) => !task.is_done && task.due_date >= today);
+            tasks = tasks.filter((task) => !task.is_completed && task.due_date >= today);
         }
 
         response.json(tasks);
