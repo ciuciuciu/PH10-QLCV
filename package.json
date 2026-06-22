@@ -14,9 +14,9 @@
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "server.js",
+  "main": "sources/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node sources/server.js"
   },
   "dependencies": {
     "cors": "^2.8.6",

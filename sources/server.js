@@ -9,7 +9,8 @@ const kpiCriterionC = require("./kpi/criterion-c");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-const DB_PATH = path.join(__dirname, "database.sqlite");
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+const DB_PATH = path.join(PROJECT_ROOT, "database", "database.sqlite");
 
 app.use(cors());
 app.use(express.json());

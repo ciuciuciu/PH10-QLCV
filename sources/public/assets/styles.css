@@ -227,6 +227,15 @@ a {
     background: #22543d;
 }
 
+.btn-pdf {
+    background: #c05621;
+    color: #ffffff;
+}
+
+.btn-pdf:hover {
+    background: #9c4221;
+}
+
 .btn-warning {
     padding: 6px 12px;
     border-radius: 4px;

@@ -12,6 +12,7 @@
     const monthFilter = document.getElementById("monthFilter");
     const assignerFilter = document.getElementById("assignerFilter");
     const unitFilter = document.getElementById("unitFilter");
+    const exportPdfButton = document.getElementById("exportPdfButton");
     const exportExcelButton = document.getElementById("exportExcelButton");
     const formTitle = document.getElementById("formTitle");
     const editTaskId = document.getElementById("editTaskId");
@@ -100,6 +101,38 @@
 
         const [year, month] = value.split("-");
         return `Tháng ${Number(month)}/${year}`;
+    }
+
+    function getSelectedAssignerLabel(selectedAssigner = assignerFilter.value) {
+        return selectedAssigner === "ALL"
+            ? "Tất cả lãnh đạo giao việc"
+            : state.config.assigners.find((item) => item.code === selectedAssigner)?.name || selectedAssigner;
+    }
+
+    function getSelectedUnitLabel(selectedUnit = unitFilter.value) {
+        return selectedUnit === "ALL"
+            ? "Tất cả đơn vị trực thuộc"
+            : state.config.orgUnits.find((item) => item.code === selectedUnit)?.name || selectedUnit;
+    }
+
+    function getGeneratedDateLabel(date = new Date()) {
+        return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+    }
+
+    function escapeReportHtml(value, fallback = "-") {
+        const normalized = value === null || value === undefined || value === ""
+            ? fallback
+            : String(value);
+        return App.escapeHtml(normalized);
+    }
+
+    function buildExportFileBaseName(reportModel) {
+        const rawName = `Bao_cao_dashboard_${reportModel.meta.monthValue}_${reportModel.meta.unitLabel}_${reportModel.meta.assignerLabel}`;
+        return rawName
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "");
     }
 
     function formatKpiAScore(value) {
@@ -379,6 +412,87 @@
         return "Đang triển khai";
     }
 
+    function getSummaryUnits() {
+        const activeUnits = state.config.orgUnits.filter((item) => !item.disabled);
+        return unitFilter.value !== "ALL"
+            ? activeUnits.filter((item) => item.code === unitFilter.value)
+            : activeUnits;
+    }
+
+    function buildDashboardReportModel() {
+        const filteredTasks = getFilteredTasks();
+        const summaryUnits = getSummaryUnits();
+        const kpiBUnitLookup = Object.fromEntries((state.kpiBSummary?.units || []).map((unit) => [unit.unit_code, unit]));
+        const kpiCUnitLookup = Object.fromEntries((state.kpiCSummary?.units || []).map((unit) => [unit.unit_code, unit]));
+        const summaryRows = summaryUnits.map((unit, index) => {
+            const unitTasks = filteredTasks.filter((task) => task.unit_code === unit.code);
+            const assignedCount = unitTasks.length;
+            const doneCount = unitTasks.filter((task) => task.status_code === "done").length;
+            const delayedCount = unitTasks.filter((task) => task.status_code === "delayed").length;
+            const completedCount = doneCount + delayedCount;
+            const pendingCount = Math.max(assignedCount - completedCount, 0);
+            const kpiAScore = assignedCount ? (completedCount / assignedCount) : 0;
+            const kpiAPercent = assignedCount ? Math.round((completedCount / assignedCount) * 100) : 0;
+            const kpiBScore = kpiBUnitLookup[unit.code]?.kpi_b_score || 0;
+            const kpiCScore = kpiCUnitLookup[unit.code]?.kpi_c_score || 0;
+
+            return {
+                order: index + 1,
+                unit_code: unit.code,
+                unit_name: unit.name,
+                assigned_count: assignedCount,
+                done_count: doneCount,
+                completed_count: completedCount,
+                pending_count: pendingCount,
+                delayed_count: delayedCount,
+                kpi_a_score: kpiAScore,
+                kpi_a_percent: kpiAPercent,
+                kpi_b_score: kpiBScore,
+                kpi_c_score: kpiCScore,
+                final_kpi_score: calculateFinalKpiScore(kpiAScore, kpiBScore, kpiCScore)
+            };
+        });
+
+        const totals = summaryRows.reduce((summary, unit) => ({
+            assigned_count: summary.assigned_count + unit.assigned_count,
+            done_count: summary.done_count + unit.done_count,
+            completed_count: summary.completed_count + unit.completed_count,
+            pending_count: summary.pending_count + unit.pending_count,
+            delayed_count: summary.delayed_count + unit.delayed_count
+        }), {
+            assigned_count: 0,
+            done_count: 0,
+            completed_count: 0,
+            pending_count: 0,
+            delayed_count: 0
+        });
+
+        const kpiAScoreTotal = totals.assigned_count ? (totals.completed_count / totals.assigned_count) : 0;
+        const kpiAPercentTotal = totals.assigned_count ? Math.round((totals.completed_count / totals.assigned_count) * 100) : 0;
+        const kpiBScoreTotal = state.kpiBSummary?.totals?.kpi_b_score || 0;
+        const kpiCScoreTotal = state.kpiCSummary?.totals?.kpi_c_score || 0;
+
+        return {
+            meta: {
+                monthValue: monthFilter.value || getCurrentMonthValue(),
+                monthLabel: getMonthFilterLabel(monthFilter.value || getCurrentMonthValue()),
+                assignerLabel: getSelectedAssignerLabel(),
+                unitLabel: getSelectedUnitLabel(),
+                generatedDateLabel: getGeneratedDateLabel()
+            },
+            filteredTasks,
+            summaryRows,
+            totals: {
+                ...totals,
+                kpi_a_score: kpiAScoreTotal,
+                kpi_a_percent: kpiAPercentTotal,
+                kpi_b_score: kpiBScoreTotal,
+                kpi_c_score: kpiCScoreTotal,
+                final_kpi_score: calculateFinalKpiScore(kpiAScoreTotal, kpiBScoreTotal, kpiCScoreTotal)
+            }
+        };
+    }
+
     function getFilteredTasks() {
         const selectedMonth = monthFilter.value;
         const selectedAssigner = assignerFilter.value;
@@ -568,59 +682,9 @@
         }
     }
 
-    function renderSummary() {
+    function renderSummary(reportModel = buildDashboardReportModel()) {
         summaryTableBody.innerHTML = "";
-        const filteredTasks = getFilteredTasks();
-        const activeUnits = state.config.orgUnits.filter((item) => !item.disabled);
-        const summaryUnits = unitFilter.value !== "ALL"
-            ? activeUnits.filter((item) => item.code === unitFilter.value)
-            : activeUnits;
-        const computedUnits = summaryUnits.map((unit, index) => {
-            const unitTasks = filteredTasks.filter((task) => task.unit_code === unit.code);
-            const assignedCount = unitTasks.length;
-            const doneCount = unitTasks.filter((task) => task.status_code === "done").length;
-            const delayedCount = unitTasks.filter((task) => task.status_code === "delayed").length;
-            const completedCount = doneCount + delayedCount;
-            const pendingCount = Math.max(assignedCount - completedCount, 0);
-
-            return {
-                order: index + 1,
-                unit_code: unit.code,
-                unit_name: unit.name,
-                assigned_count: assignedCount,
-                done_count: doneCount,
-                completed_count: completedCount,
-                pending_count: pendingCount,
-                delayed_count: delayedCount,
-                kpi_a_score: assignedCount ? (completedCount / assignedCount) : 0,
-                kpi_a_percent: assignedCount ? Math.round((completedCount / assignedCount) * 100) : 0
-            };
-        });
-        const summaryTotals = state.kpiASummary?.totals || {
-            assigned_count: 0,
-            done_count: 0,
-            completed_count: 0,
-            completed_ahead_count: 0,
-            completed_on_time_count: 0,
-            completed_late_count: 0,
-            pending_count: 0,
-            delayed_count: 0,
-            kpi_a_score: 0,
-            kpi_a_percent: 0
-        };
-        const kpiBUnitLookup = Object.fromEntries((state.kpiBSummary?.units || []).map((unit) => [unit.unit_code, unit]));
-        const kpiCUnitLookup = Object.fromEntries((state.kpiCSummary?.units || []).map((unit) => [unit.unit_code, unit]));
-        const summaryBTotal = state.kpiBSummary?.totals || {
-            kpi_b_score: 0
-        };
-        const summaryCTotal = state.kpiCSummary?.totals || {
-            kpi_c_score: 0
-        };
-
-        computedUnits.forEach((unit) => {
-            const kpiBUnit = kpiBUnitLookup[unit.unit_code] || { kpi_b_score: 0 };
-            const kpiCUnit = kpiCUnitLookup[unit.unit_code] || { kpi_c_score: 0 };
-            const finalKpi = calculateFinalKpiScore(unit.kpi_a_score, kpiBUnit.kpi_b_score, kpiCUnit.kpi_c_score);
+        reportModel.summaryRows.forEach((unit) => {
             summaryTableBody.innerHTML += `
                 <tr>
                     <td class="text-center">${unit.order}</td>
@@ -631,62 +695,35 @@
                     <td class="text-center fw-bold stat-delayed">${unit.delayed_count}</td>
                     <td class="text-center fw-bold highlight-cell">${unit.kpi_a_percent}%</td>
                     <td class="text-center fw-bold highlight-cell">${formatKpiAScore(unit.kpi_a_score)}</td>
-                    <td class="text-center fw-bold highlight-cell">${formatKpiAScore(kpiBUnit.kpi_b_score)}</td>
-                    <td class="text-center fw-bold highlight-cell">${formatKpiAScore(kpiCUnit.kpi_c_score)}</td>
-                    <td class="text-center fw-bold highlight-cell">${formatKpiAScore(finalKpi)}%</td>
+                    <td class="text-center fw-bold highlight-cell">${formatKpiAScore(unit.kpi_b_score)}</td>
+                    <td class="text-center fw-bold highlight-cell">${formatKpiAScore(unit.kpi_c_score)}</td>
+                    <td class="text-center fw-bold highlight-cell">${formatKpiAScore(unit.final_kpi_score)}%</td>
                 </tr>
             `;
         });
 
-        const computedTotals = computedUnits.reduce((summary, unit) => ({
-            assigned_count: summary.assigned_count + unit.assigned_count,
-            done_count: summary.done_count + unit.done_count,
-            completed_count: summary.completed_count + unit.completed_count,
-            pending_count: summary.pending_count + unit.pending_count,
-            delayed_count: summary.delayed_count + unit.delayed_count
-        }), {
-            assigned_count: 0,
-            done_count: 0,
-            completed_count: 0,
-            pending_count: 0,
-            delayed_count: 0
-        });
-        const resolvedSummaryTotals = {
-            ...summaryTotals,
-            ...computedTotals,
-            kpi_a_score: computedTotals.assigned_count ? (computedTotals.completed_count / computedTotals.assigned_count) : 0,
-            kpi_a_percent: computedTotals.assigned_count ? Math.round((computedTotals.completed_count / computedTotals.assigned_count) * 100) : 0
-        };
-
-        const finalKpiTotal = calculateFinalKpiScore(
-            resolvedSummaryTotals.kpi_a_score,
-            summaryBTotal.kpi_b_score,
-            summaryCTotal.kpi_c_score
-        );
-
         summaryTableBody.innerHTML += `
             <tr class="total-row">
                 <td colspan="2" class="text-center">TỔNG CỘNG TOÀN PHÒNG</td>
-                <td class="text-center stat-total">${resolvedSummaryTotals.assigned_count}</td>
-                <td class="text-center stat-done">${resolvedSummaryTotals.done_count}</td>
-                <td class="text-center stat-pending">${resolvedSummaryTotals.pending_count}</td>
-                <td class="text-center stat-delayed">${resolvedSummaryTotals.delayed_count}</td>
-                <td class="text-center highlight-total">${resolvedSummaryTotals.kpi_a_percent}%</td>
-                <td class="text-center highlight-total">${formatKpiAScore(resolvedSummaryTotals.kpi_a_score)}</td>
-                <td class="text-center highlight-total">${formatKpiAScore(summaryBTotal.kpi_b_score)}</td>
-                <td class="text-center highlight-total">${formatKpiAScore(summaryCTotal.kpi_c_score)}</td>
-                <td class="text-center highlight-total">${formatKpiAScore(finalKpiTotal)}%</td>
+                <td class="text-center stat-total">${reportModel.totals.assigned_count}</td>
+                <td class="text-center stat-done">${reportModel.totals.done_count}</td>
+                <td class="text-center stat-pending">${reportModel.totals.pending_count}</td>
+                <td class="text-center stat-delayed">${reportModel.totals.delayed_count}</td>
+                <td class="text-center highlight-total">${reportModel.totals.kpi_a_percent}%</td>
+                <td class="text-center highlight-total">${formatKpiAScore(reportModel.totals.kpi_a_score)}</td>
+                <td class="text-center highlight-total">${formatKpiAScore(reportModel.totals.kpi_b_score)}</td>
+                <td class="text-center highlight-total">${formatKpiAScore(reportModel.totals.kpi_c_score)}</td>
+                <td class="text-center highlight-total">${formatKpiAScore(reportModel.totals.final_kpi_score)}%</td>
             </tr>
         `;
 
-        totalTasks.textContent = resolvedSummaryTotals.assigned_count;
-        doneTasks.textContent = resolvedSummaryTotals.done_count;
-        pendingTasks.textContent = resolvedSummaryTotals.pending_count;
-        delayedTasks.textContent = resolvedSummaryTotals.delayed_count;
+        totalTasks.textContent = reportModel.totals.assigned_count;
+        doneTasks.textContent = reportModel.totals.done_count;
+        pendingTasks.textContent = reportModel.totals.pending_count;
+        delayedTasks.textContent = reportModel.totals.delayed_count;
     }
 
-    function renderTaskTable() {
-        const filteredTasks = getFilteredTasks();
+    function renderTaskTable(filteredTasks = getFilteredTasks()) {
         taskTableBody.innerHTML = "";
 
         filteredTasks.forEach((task, index) => {
@@ -726,8 +763,9 @@
     }
 
     function renderAll() {
-        renderSummary();
-        renderTaskTable();
+        const reportModel = buildDashboardReportModel();
+        renderSummary(reportModel);
+        renderTaskTable(reportModel.filteredTasks);
     }
 
     function buildKpiASummaryUrl() {
@@ -940,202 +978,39 @@
     }
 
     function exportToExcelAll() {
-        const selectedMonthLabel = getMonthFilterLabel(monthFilter.value || getCurrentMonthValue());
-        const selectedAssigner = assignerFilter.value;
-        const selectedUnit = unitFilter.value;
-        const filteredTasks = getFilteredTasks();
-        const selectedAssignerLabel = selectedAssigner === "ALL"
-            ? "Tất cả lãnh đạo giao việc"
-            : state.config.assigners.find((item) => item.code === selectedAssigner)?.name || selectedAssigner;
-        const selectedUnitLabel = selectedUnit === "ALL"
-            ? "Tất cả đơn vị trực thuộc"
-            : state.config.orgUnits.find((item) => item.code === selectedUnit)?.name || selectedUnit;
-        const now = new Date();
-        const currentTimeStr = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+        const reportModel = buildDashboardReportModel();
+        if (!window.DashboardExcelExport?.exportReport) {
+            App.showMessage("Chưa tải được bộ xuất Excel.", "error");
+            return;
+        }
 
-        const exportKpiBLookup = Object.fromEntries((state.kpiBSummary?.units || []).map((unit) => [unit.unit_code, unit]));
-        const exportKpiCLookup = Object.fromEntries((state.kpiCSummary?.units || []).map((unit) => [unit.unit_code, unit]));
-        let summaryRows = "";
-        let grandTotal = 0;
-        let grandDone = 0;
-        let grandCompleted = 0;
-        let grandPending = 0;
-        let grandDelayed = 0;
-
-        state.config.orgUnits.filter((unit) => !unit.disabled).forEach((unit, index) => {
-            const unitTasks = filteredTasks.filter((task) => task.unit_code === unit.code);
-            const total = unitTasks.length;
-            const done = unitTasks.filter((task) => task.status_code === "done").length;
-            const delayed = unitTasks.filter((task) => task.status_code === "delayed").length;
-            const completed = done + delayed;
-            const pending = total - completed;
-            const kpiAScore = total ? (completed / total) : 0;
-            const kpiBScore = exportKpiBLookup[unit.code]?.kpi_b_score || 0;
-            const kpiCScore = exportKpiCLookup[unit.code]?.kpi_c_score || 0;
-            const finalKpiScore = calculateFinalKpiScore(kpiAScore, kpiBScore, kpiCScore);
-            const percent = total ? Math.round((completed / total) * 100) : 0;
-            grandTotal += total;
-            grandDone += done;
-            grandCompleted += completed;
-            grandPending += pending;
-            grandDelayed += delayed;
-
-            summaryRows += `
-                <tr class="data-row">
-                    <td class="text-center">${index + 1}</td>
-                    <td class="text-left font-bold">${unit.name}</td>
-                    <td class="text-center font-bold">${total}</td>
-                    <td class="text-center font-bold text-success">${done}</td>
-                    <td class="text-center font-bold text-warning">${pending}</td>
-                    <td class="text-center font-bold text-danger">${delayed}</td>
-                    <td class="text-center font-bold highlight-cell">${percent}%</td>
-                    <td class="text-center font-bold highlight-cell">${formatKpiAScore(kpiAScore)}</td>
-                    <td class="text-center font-bold highlight-cell">${formatKpiAScore(kpiBScore)}</td>
-                    <td class="text-center font-bold highlight-cell">${formatKpiAScore(kpiCScore)}</td>
-                    <td class="text-center font-bold highlight-cell">${formatKpiAScore(finalKpiScore)}%</td>
-                </tr>
-            `;
+        window.DashboardExcelExport.exportReport({
+            reportModel,
+            formatKpiAScore,
+            formatDate,
+            displayStatusName,
+            getCountdownTemplate,
+            escapeReportHtml,
+            buildExportFileBaseName
         });
+    }
 
-        const grandKpiAScore = grandTotal ? (grandCompleted / grandTotal) : 0;
-        const grandKpiBScore = state.kpiBSummary?.totals?.kpi_b_score || 0;
-        const grandKpiCScore = state.kpiCSummary?.totals?.kpi_c_score || 0;
-        const grandFinalKpiScore = calculateFinalKpiScore(grandKpiAScore, grandKpiBScore, grandKpiCScore);
-        const grandPercent = grandTotal ? Math.round((grandCompleted / grandTotal) * 100) : 0;
-        const summaryTotalRow = `
-            <tr class="total-row">
-                <td colspan="2" class="text-center font-bold">TỔNG CỘNG TOÀN PHÒNG</td>
-                <td class="text-center font-bold">${grandTotal}</td>
-                <td class="text-center font-bold text-success">${grandDone}</td>
-                <td class="text-center font-bold text-warning">${grandPending}</td>
-                <td class="text-center font-bold text-danger">${grandDelayed}</td>
-                <td class="text-center font-bold highlight-total">${grandPercent}%</td>
-                <td class="text-center font-bold highlight-total">${formatKpiAScore(grandKpiAScore)}</td>
-                <td class="text-center font-bold highlight-total">${formatKpiAScore(grandKpiBScore)}</td>
-                <td class="text-center font-bold highlight-total">${formatKpiAScore(grandKpiCScore)}</td>
-                <td class="text-center font-bold highlight-total">${formatKpiAScore(grandFinalKpiScore)}%</td>
-            </tr>
-        `;
+    function exportToPdfReport() {
+        const reportModel = buildDashboardReportModel();
+        if (!window.DashboardPdfExport?.exportReport) {
+            App.showMessage("Chưa tải được bộ xuất PDF.", "error");
+            return;
+        }
 
-        let detailRows = "";
-        let count = 0;
-        filteredTasks.forEach((task) => {
-            count += 1;
-            const currentStatus = displayStatusName(task);
-            const statusColorClass = task.status_code === "done"
-                ? "text-success"
-                : task.status_code === "delayed"
-                    ? "text-danger"
-                    : task.is_overdue
-                        ? "text-danger"
-                        : "text-warning";
-
-            detailRows += `
-                <tr class="data-row">
-                    <td class="text-center">${String(count).padStart(2, "0")}</td>
-                    <td class="text-left font-bold text-darkorange">${task.assigner_name || "-"}</td>
-                    <td class="text-left font-bold">${task.title}</td>
-                    <td class="text-center"><span class="badge-unit">${task.unit_name}</span></td>
-                    <td class="text-center font-bold">Hạn: ${formatDate(task.due_date)}<br/><span class="${statusColorClass}">${currentStatus}</span><br/><small style="color:#718096;">${getCountdownTemplate(task)}</small></td>
-                    <td class="text-left">${task.expected_result || "-"}</td>
-                    <td class="text-left font-bold">${task.owner_name || "-"}</td>
-                    <td class="text-left"><small>${task.authority_name || "-"}</small></td>
-                    <td class="text-left font-bold text-link">${task.latest_update || "-"}</td>
-                    <td class="text-left text-italic">${task.latest_issue || "-"}</td>
-                </tr>
-            `;
+        window.DashboardPdfExport.exportReport({
+            reportModel,
+            formatKpiAScore,
+            formatDate,
+            displayStatusName,
+            getCountdownTemplate,
+            escapeReportHtml,
+            buildExportFileBaseName
         });
-
-        const excelTemplate = `
-            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-            <head>
-                <meta charset="utf-8"/>
-                <style>
-                    body { font-family: "Segoe UI", "Arial", sans-serif; color: #2d3748; }
-                    table { border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; width: 100%; }
-                    th, td { border: 1px solid #a0aec0 !important; padding: 8px 10px; vertical-align: middle; mso-number-format:"\\@"; white-space: normal; word-wrap: break-word; }
-                    .main-title { font-size: 18pt; font-weight: bold; color: #1a365d; text-align: center; font-family: "Segoe UI", Arial; text-transform: uppercase; }
-                    .sub-title { font-size: 11pt; font-style: italic; color: #4a5568; text-align: center; }
-                    .section-heading { font-size: 13pt; font-weight: bold; color: #1a365d; font-family: "Segoe UI", Arial; margin-top: 20px; margin-bottom: 8px; }
-                    th { background-color: #1a365d !important; color: #ffffff !important; font-size: 10.5pt; font-weight: bold; text-align: center; text-transform: uppercase; height: 32px; }
-                    .data-row { height: 26px; font-size: 11pt; }
-                    .total-row { background-color: #cbd5e0 !important; font-size: 11pt; font-weight: bold; height: 30px; }
-                    .text-center { text-align: center; }
-                    .text-left { text-align: left; }
-                    .font-bold { font-weight: bold; }
-                    .text-italic { font-style: italic; color: #4a5568; }
-                    .text-success { color: #22543d !important; font-weight: bold; }
-                    .text-warning { color: #b7791f !important; font-weight: bold; }
-                    .text-danger { color: #9b2c2c !important; font-weight: bold; }
-                    .text-darkorange { color: #c05621 !important; }
-                    .text-link { color: #2b6cb0 !important; }
-                    .highlight-cell { background-color: #edf2f7 !important; color: #1a365d !important; }
-                    .highlight-total { background-color: #a0aec0 !important; color: #1a365d !important; }
-                    .badge-unit { background-color: #ebf8ff !important; color: #1a365d !important; padding: 2px 4px; border-radius: 4px; font-weight: bold; }
-                    .completion-cell { line-height: 1.35; }
-                    .completion-total { font-size: 11pt; font-weight: bold; }
-                    .completion-breakdown { font-size: 9pt; font-weight: 600; }
-                </style>
-            </head>
-            <body>
-                <table>
-                    <tr><td colspan="12" style="border:none !important;" class="main-title">BÁO CÁO GIÁM SÁT TIẾN ĐỘ CÔNG VIỆC HẬU CẦN TIÊU CHÍ "7 RÕ"</td></tr>
-                    <tr><td colspan="12" style="border:none !important;" class="sub-title">Phạm vi dữ liệu: ${selectedMonthLabel} | ${selectedAssignerLabel} | ${selectedUnitLabel} | Ngày lập báo cáo trực tuyến: ${currentTimeStr}</td></tr>
-                </table>
-                <div class="section-heading">I. BẢNG TỔNG HỢP TIẾN ĐỘ & HIỆU SUẤT CÁC ĐỘI NGHIỆP VỤ</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 45px;">STT</th>
-                            <th style="width: 250px;">Đơn vị trực thuộc</th>
-                            <th style="width: 120px;">Tổng số nhiệm vụ</th>
-                            <th style="width: 180px;">Đã hoàn thành</th>
-                            <th style="width: 120px;">Đang triển khai</th>
-                            <th style="width: 120px;">Chậm tiến độ</th>
-                            <th style="width: 150px;">Tỷ lệ hoàn thành</th>
-                            <th style="width: 110px;">KPI-A</th>
-                            <th style="width: 110px;">KPI-B</th>
-                            <th style="width: 110px;">KPI-C</th>
-                            <th style="width: 110px;">KPI</th>
-                        </tr>
-                    </thead>
-                    <tbody>${summaryRows}${summaryTotalRow}</tbody>
-                </table>
-                <br/>
-                <div style="font-size:10pt; color:#4a5568; margin-bottom:10px;">
-                    <strong>Lưu ý:</strong> "Chậm tiến độ" là công việc đã hoàn thành nhưng hoàn thành sau hạn. Công việc chưa hoàn thành nhưng đã quá hạn vẫn thuộc trạng thái "Đang triển khai" và được cảnh báo bằng bộ đếm ngược.
-                </div>
-                <div class="section-heading">II. BẢNG CHI TIẾT THEO DÕI TIẾN ĐỘ CÔNG VIỆC CỤ THỂ KHỐI HẬU CẦN</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 45px;">STT</th>
-                            <th style="width: 140px;">1. LÃNH ĐẠO GIAO</th>
-                            <th style="width: 260px;">2. RÕ VIỆC (Nội dung)</th>
-                            <th style="width: 140px;">3. RÕ NGƯỜI (Đơn vị)</th>
-                            <th style="width: 160px;">4. TIẾN ĐỘ & TRẠNG THÁI</th>
-                            <th style="width: 220px;">5. RÕ KẾT QUẢ ĐẦU RA</th>
-                            <th style="width: 140px;">6. RÕ TRÁCH NHIỆM</th>
-                            <th style="width: 130px;">7. RÕ THẨM QUYỀN</th>
-                            <th style="width: 240px;">CẬP NHẬT KẾT QUẢ THỰC TẾ</th>
-                            <th style="width: 180px;">GHI CHÚ / KHÓ KHĂN</th>
-                        </tr>
-                    </thead>
-                    <tbody>${detailRows}</tbody>
-                </table>
-            </body>
-            </html>
-        `;
-
-        const blobData = new Blob(["\uFEFF" + excelTemplate], { type: "application/vnd.ms-excel;charset=utf-8" });
-        const url = window.URL.createObjectURL(blobData);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `Bao_Cao_Hau_Can_Phan_Tich_7Ro_${selectedUnitLabel.replace(/\s+/g, "_")}.xls`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
     }
 
     async function bootstrap() {
@@ -1163,6 +1038,7 @@
             applyKpiFieldLabels();
 
             analyzeDocumentButton.addEventListener("click", analyzeDocument);
+            exportPdfButton.addEventListener("click", exportToPdfReport);
             exportExcelButton.addEventListener("click", exportToExcelAll);
             monthFilter.addEventListener("change", () => {
                 loadTasks().catch((error) => App.showMessage(error.message, "error"));

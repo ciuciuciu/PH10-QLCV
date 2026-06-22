@@ -36,7 +36,7 @@
                     <input type="text" id="taskName" placeholder="Nội dung công việc...">
                 </div>
                 <div class="form-group">
-                    <label for="taskUnit">3. RÕ TRÁCH NHIỆM (Đơn vị chủ trì)</label>
+                    <label for="taskUnit">3. RÕ NGƯỜI (Đơn vị)</label>
                     <select id="taskUnit"></select>
                 </div>
                 <div class="form-group">
@@ -134,6 +134,7 @@
                     </div>
                 </div>
                 <div class="control-actions">
+                    <button class="btn btn-pdf" id="exportPdfButton" type="button">🖨️ Xuất báo cáo PDF</button>
                     <button class="btn btn-excel" id="exportExcelButton" type="button">📥 Xuất toàn bộ báo cáo thống kê & chi tiết (Excel)</button>
                 </div>
             </div>
@@ -195,6 +196,10 @@
     </main>
 
     <script src="/assets/js/app.js"></script>
+    <script src="/assets/js/export/excel-export.js"></script>
+    <script src="/assets/js/export/pdfmake.min.js"></script>
+    <script src="/assets/js/export/vfs_fonts.min.js"></script>
+    <script src="/assets/js/export/pdf-export.js"></script>
     <script src="/assets/js/dashboard.js"></script>
 </body>
 </html>
